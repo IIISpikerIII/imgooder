@@ -14,7 +14,10 @@ var countChanel int = 2
 func main() {
 
     codeFile := flag.String("code", "", "File convert to image")
-    decodeFile := flag.String("decode", "", "File convert to image")
+    decodeFile := flag.String("decode", "", "Image convert to file")
+    outFile := flag.String("out", "out.txt", "File out from decode")
+    h := flag.Bool("h", false, "Help by command")
+    help := flag.Bool("help", false, "Help by command")
     flag.Parse()
 
     fmt.Println(*codeFile)
@@ -24,6 +27,10 @@ func main() {
     }
 
     if len(*decodeFile) > 4 {
-        imgDecoder.ReadImageToFile(*decodeFile, "out.txt")
+        imgDecoder.ReadImageToFile(*decodeFile, *outFile)
+    }
+
+    if *h || *help {
+        flag.PrintDefaults()
     }
 }
