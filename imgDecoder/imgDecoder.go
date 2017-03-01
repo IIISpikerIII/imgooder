@@ -72,17 +72,36 @@ func fileCreateFromImg(image image.Image, outFileName string)  {
 }
 
 func readLine(c chan *ByteLine, image image.Image, i, w int) {
-    buf := make([]byte, w)
+    buf := make([]byte, w*countChanel)
     len:=0
     res := new(ByteLine)
     res.NumLine = i;
     for x := 0; x < w; x++ {
         pix:= image.At(x, i)
-        r, _, _, _ := pix.RGBA()
-        if r != 0 {
-            len++
+        r, g, b, a := pix.RGBA()
+
+        if countChanel >= 1 && r != 0 {
             bt:= math.Floor(float64(r)/float64(256))
-            buf[x] = byte(bt)
+            buf[len] = byte(bt)
+            len++
+        }
+
+        if countChanel >= 2 && g != 0 {
+            bt:= math.Floor(float64(g)/float64(256))
+            buf[len] = byte(bt)
+            len++
+        }
+
+        if countChanel >= 3 && b != 0 {
+            bt:= math.Floor(float64(b)/float64(256))
+            buf[len] = byte(bt)
+            len++
+        }
+
+        if countChanel == 4 && a != 0 {
+            bt:= math.Floor(float64(a)/float64(256))
+            buf[len] = byte(bt)
+            len++
         }
     }
     res.Bt = buf[:len]

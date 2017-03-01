@@ -12,7 +12,7 @@ import (
 )
 
 const NCPU = 4
-var countChanel int = 2
+var countChanel int = 3
 
 func ReadFileToImage(fileName string, bufSize int)  {
 
@@ -27,8 +27,9 @@ func ReadFileToImage(fileName string, bufSize int)  {
         log.Fatal(err)
     }
 
+    bSize:= (bufSize*countChanel)
     size:= fi.Size()
-    lines:= math.Ceil(float64(size)/float64(bufSize))
+    lines:= math.Ceil(float64(size)/float64(bSize))
 
     imgCreateFromFile(int(lines), bufSize, file)
 }
@@ -55,10 +56,29 @@ func readFileToBuf(file *os.File, buf []byte) ([]byte, string) {
 }
 
 func renderLine(c chan int, img *image.RGBA, x int, y int, buf []byte)  {
+    pix:=0
+    countCh:= countChanel
     for x1 := 0; x1 < x; x1++ {
-        if len(buf) > x1 {
-            img.Set(x1, y, color.RGBA{buf[x1], 0, 0, 255})
+
+        div:= (len(buf) - pix)
+        if div <= 0 {
+            continue
         }
+        if div < countCh {
+            countCh = div
+        }
+
+        switch countCh {
+        case 1:
+            img.Set(x1, y, color.RGBA{buf[pix], 0, 0, 255})
+        case 2:
+            img.Set(x1, y, color.RGBA{buf[pix], buf[pix+1], 0, 255})
+        case 3:
+            img.Set(x1, y, color.RGBA{buf[pix], buf[pix+1], buf[pix+2], 255})
+        case 4:
+            img.Set(x1, y, color.RGBA{buf[pix], buf[pix+1], buf[pix+2], buf[x1+3]})
+        }
+        pix=pix+countChanel
     }
     c <- y;
 }
@@ -66,6 +86,7 @@ func renderLine(c chan int, img *image.RGBA, x int, y int, buf []byte)  {
 func imgCreateFromFile(lines int, bufSize int, file *os.File) {
     img := image.NewRGBA(image.Rect(0, 0, bufSize, lines))
 
+    bufSizeRead := bufSize*countChanel
     var numCpu int = NCPU
     if(lines < NCPU){
         numCpu = lines
@@ -75,7 +96,7 @@ func imgCreateFromFile(lines int, bufSize int, file *os.File) {
     var yCount int = 0
 
     for i := 0; i < numCpu; i++ {
-        buf := make([]byte, bufSize)
+        buf := make([]byte, bufSizeRead)
         n, error := readFileToBuf(file, buf)
         if (len(n) > 0) && (error == "ok") {
             go renderLine(c, img, bufSize, yCount, n)
@@ -85,7 +106,7 @@ func imgCreateFromFile(lines int, bufSize int, file *os.File) {
 
     //после ответа канала, проверяем очередь, отправляем еще задачу либо канал на выход
     for i := 0; i < numCpu; {
-        buf := make([]byte, bufSize)
+        buf := make([]byte, bufSizeRead)
         fmt.Printf("answer: %d\n", <-c);
 
         n, error := readFileToBuf(file, buf)
