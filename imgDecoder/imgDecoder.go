@@ -4,18 +4,28 @@ import (
     "image"
     "os"
     "log"
-    "math"
     "image/png"
+    "image/color"
+    "fmt"
 )
 
-const NCPU = 4
-var countChanel int = 2
+type Configuration struct {
+    CountChanel int
+    CountThread int
+    WidthImg int
+    OutImgFile string
+    OutTxtFile string
+}
+var Conf Configuration
 
 type ByteLine struct {
     Bt []byte
     NumLine int
 }
 
+/*
+    Main function by convert imagefile to textfile
+ */
 func ReadImageToFile(fileName string, outFileName string)  {
 
     img, err := os.Open(fileName)
@@ -30,18 +40,24 @@ func ReadImageToFile(fileName string, outFileName string)  {
     }
 
     fileCreateFromImg(pngImage, outFileName)
+    fmt.Println("OK!");
+    fmt.Println("File: ", outFileName);
 }
 
+/*
+    Create file from image
+ */
 func fileCreateFromImg(image image.Image, outFileName string)  {
     bounds := image.Bounds()
     w, lines := bounds.Max.X, bounds.Max.Y
 
-    var numCpu int = NCPU
-    if(lines < NCPU){
+    // Определяем количество каналов в зависимости от количества строк
+    var numCpu int = Conf.CountThread
+    if(lines < Conf.CountThread){
         numCpu = lines
     }
 
-    c := make(chan *ByteLine, NCPU)
+    c := make(chan *ByteLine, Conf.CountThread)
     var yCount int = 0
 
     for i := 0; i < numCpu; i++ {
@@ -53,9 +69,9 @@ func fileCreateFromImg(image image.Image, outFileName string)  {
     defer f.Close()
 
     buf := make([][]byte , lines)
+
     //после ответа канала, проверяем очередь, отправляем еще задачу либо канал на выход
     for i := 0; i < numCpu; {
-        //fmt.Printf("answer: %d\n", <-c);
         res:= <-c
         buf[res.NumLine] = res.Bt
         if (yCount < lines) {
@@ -71,39 +87,50 @@ func fileCreateFromImg(image image.Image, outFileName string)  {
     }
 }
 
+/*
+    Reading line from imagefile
+ */
 func readLine(c chan *ByteLine, image image.Image, i, w int) {
-    buf := make([]byte, w*countChanel)
+    // Буфер для декодированных байт
+    buf := make([]byte, w* Conf.CountChanel)
     len:=0
     res := new(ByteLine)
     res.NumLine = i;
+
+    // Обход по пикселям
     for x := 0; x < w; x++ {
         pix:= image.At(x, i)
-        r, g, b, a := pix.RGBA()
+        //r, g, b, a := pix.RGBA()
+        //fmt.Print(r, " ", g, " ", b, " ", a, " ");
+        //rgbacol := color.NRGBAModel.Convert(pix.(color.NRGBA))
 
-        if countChanel >= 1 && r != 0 {
-            bt:= math.Floor(float64(r)/float64(256))
-            buf[len] = byte(bt)
-            len++
-        }
+        r := pix.(color.NRGBA).R
+        g := pix.(color.NRGBA).G
+        b := pix.(color.NRGBA).B
+        a := pix.(color.NRGBA).A
 
-        if countChanel >= 2 && g != 0 {
-            bt:= math.Floor(float64(g)/float64(256))
-            buf[len] = byte(bt)
-            len++
-        }
-
-        if countChanel >= 3 && b != 0 {
-            bt:= math.Floor(float64(b)/float64(256))
-            buf[len] = byte(bt)
-            len++
-        }
-
-        if countChanel == 4 && a != 0 {
-            bt:= math.Floor(float64(a)/float64(256))
-            buf[len] = byte(bt)
-            len++
+        switch Conf.CountChanel {
+            case 1 :
+                buf, len = addByteBuf(buf, []uint8{r}, len)
+            case 2 :
+                buf, len = addByteBuf(buf, []uint8{r, g}, len)
+            case 3 :
+                buf, len = addByteBuf(buf, []uint8{r, g, b}, len)
+            case 4 :
+                buf, len = addByteBuf(buf, []uint8{r, g, b, a}, len)
         }
     }
+    fmt.Print(".")
     res.Bt = buf[:len]
     c<- res
+}
+
+func addByteBuf(buf []byte, bytes []uint8, start int) ([]byte, int){
+    for  _, value := range bytes {
+        if value != 0 {
+            buf[start] = byte(value)
+            start++
+        }
+    }
+    return buf, start;
 }

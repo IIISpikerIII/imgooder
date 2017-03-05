@@ -11,8 +11,14 @@ import (
     "image/png"
 )
 
-const NCPU = 4
-var countChanel int = 3
+type Configuration struct {
+    CountChanel int
+    CountThread int
+    WidthImg int
+    OutImgFile string
+    OutTxtFile string
+}
+var Conf Configuration
 
 func ReadFileToImage(fileName string, bufSize int)  {
 
@@ -27,11 +33,13 @@ func ReadFileToImage(fileName string, bufSize int)  {
         log.Fatal(err)
     }
 
-    bSize:= (bufSize*countChanel)
+    bSize:= (bufSize* Conf.CountChanel)
     size:= fi.Size()
     lines:= math.Ceil(float64(size)/float64(bSize))
 
     imgCreateFromFile(int(lines), bufSize, file)
+    fmt.Println("OK!");
+    fmt.Println("File: ", Conf.OutImgFile);
 }
 
 func readFileToBuf(file *os.File, buf []byte) ([]byte, string) {
@@ -55,44 +63,50 @@ func readFileToBuf(file *os.File, buf []byte) ([]byte, string) {
     return make([]byte, 0), "err"
 }
 
-func renderLine(c chan int, img *image.RGBA, x int, y int, buf []byte)  {
+func renderLine(c chan int, img *image.NRGBA, x int, y int, buf []byte)  {
     pix:=0
-    countCh:= countChanel
+    countCh:= Conf.CountChanel
+    //fmt.Println(buf);
+
+    var alfa uint8 = 255
     for x1 := 0; x1 < x; x1++ {
 
+        alfa = 255
         div:= (len(buf) - pix)
         if div <= 0 {
             continue
         }
         if div < countCh {
             countCh = div
+            alfa = 0
         }
 
         switch countCh {
         case 1:
-            img.Set(x1, y, color.RGBA{buf[pix], 0, 0, 255})
+            img.Set(x1, y, color.NRGBA{buf[pix], 0, 0, alfa})
         case 2:
-            img.Set(x1, y, color.RGBA{buf[pix], buf[pix+1], 0, 255})
+            img.Set(x1, y, color.NRGBA{buf[pix], buf[pix+1], 0, alfa})
         case 3:
-            img.Set(x1, y, color.RGBA{buf[pix], buf[pix+1], buf[pix+2], 255})
+            img.Set(x1, y, color.NRGBA{buf[pix], buf[pix+1], buf[pix+2], alfa})
         case 4:
-            img.Set(x1, y, color.RGBA{buf[pix], buf[pix+1], buf[pix+2], buf[x1+3]})
+            img.Set(x1, y, color.NRGBA{buf[pix], buf[pix+1], buf[pix+2], buf[pix+3]})
         }
-        pix=pix+countChanel
+        pix=pix+ Conf.CountChanel
     }
+    fmt.Print(".");
     c <- y;
 }
 
 func imgCreateFromFile(lines int, bufSize int, file *os.File) {
-    img := image.NewRGBA(image.Rect(0, 0, bufSize, lines))
+    img := image.NewNRGBA(image.Rect(0, 0, bufSize, lines))
 
-    bufSizeRead := bufSize*countChanel
-    var numCpu int = NCPU
-    if(lines < NCPU){
+    bufSizeRead := bufSize* Conf.CountChanel
+    var numCpu int = Conf.CountThread
+    if(lines < Conf.CountThread){
         numCpu = lines
     }
 
-    c := make(chan int, NCPU)
+    c := make(chan int, Conf.CountThread)
     var yCount int = 0
 
     for i := 0; i < numCpu; i++ {
@@ -107,7 +121,7 @@ func imgCreateFromFile(lines int, bufSize int, file *os.File) {
     //после ответа канала, проверяем очередь, отправляем еще задачу либо канал на выход
     for i := 0; i < numCpu; {
         buf := make([]byte, bufSizeRead)
-        fmt.Printf("answer: %d\n", <-c);
+        //fmt.Printf("answer: %d\n", <-c);
 
         n, error := readFileToBuf(file, buf)
         if (len(n) > 0) && (error == "ok") {
@@ -118,7 +132,7 @@ func imgCreateFromFile(lines int, bufSize int, file *os.File) {
         }
     }
 
-    f, _ := os.OpenFile("out.png", os.O_WRONLY|os.O_CREATE, 0600)
+    f, _ := os.OpenFile(Conf.OutImgFile, os.O_WRONLY|os.O_CREATE, 0600)
     defer f.Close()
     png.Encode(f, img)
 }
