@@ -15,7 +15,7 @@ File:  out.png
 ```
 **out.png**
 
-!["graph data buble viewer"](https://github.com/IIISpikerIII/imgooder/tree/master/doc/out.png?raw=true)
+!["convert file to png result"](https://github.com/IIISpikerIII/imgooder/blob/master/doc/out.png?raw=true)
 
 ###Image to file
 ```
@@ -29,7 +29,7 @@ File:  out.txt
 ```
 **out.txt**
 
-!["graph data buble viewer"](https://github.com/IIISpikerIII/imgooder/tree/master/doc/outtxt.png?raw=true)
+!["convert png to file result"](https://github.com/IIISpikerIII/imgooder/blob/master/doc/outtxt.png?raw=true)
 
 ##Params
 
